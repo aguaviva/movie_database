@@ -7,15 +7,30 @@ import subprocess
 from pathlib import Path
 from tqdm import tqdm
 
-root_movies = "./nube/"
+#config
+root_movies = "./nube"
+out_dir = "./out"
+lang = "es-ES" #"en-US"
+
+lang_path = f"{out_dir}/{lang}"
+posters_path = f"{lang_path}/posters"
+thumbs_path = Path(f"{lang_path}/thumbs")
+
+movie_files_path = f"{out_dir}/movie_files.json"
+movies_imdb_path = f"{out_dir}/{lang}/movies_imdb.json"
+movie_ffprobes_path = f"{out_dir}/movie_ffprobes.json"
+
+os.makedirs(lang_path, exist_ok=True)
+os.makedirs(posters_path, exist_ok=True)
+os.makedirs(thumbs_path, exist_ok=True)
 
 #################
 def is_movie(title):
-    if title[-3:] not in ["avi", "mkv"]:
+    if title[-3:] not in ["avi", "mkv", "mp4"]:
         return False
     return True
 
-def gen_movie_files():
+def gen_movie_files(root_movies):
     base = {}
 
     files = glob.glob(root_movies + "/**", recursive=True)
@@ -29,17 +44,21 @@ def gen_movie_files():
                 base[path] = []
             base[path].append(name)
 
-    with open("movie_files.json","w") as f:
-        f.write(json.dumps(base))
+    save_movies_files(base)
+
 
 def load_movies_files():
     try:
-        with open("movie_files.json","r") as f:
+        with open(movie_files_path,"r") as f:
             base = json.load(f)
             return base
     except:
         print("cant load movie_files.json")
         sys.exit()
+
+def save_movies_files(base):
+    with open(movie_files_path,"w") as f:
+        f.write(json.dumps(base))
 
 #####################
 def search(lang, title, year):
@@ -51,7 +70,6 @@ def search(lang, title, year):
         j= r.json()
         return j
     return None
-
 
 def myprint(lang, x, ep):
     x = list(x[0])
@@ -78,21 +96,20 @@ def get_imdb(lang, title):
         return myprint(lang, x, ep)
     return None
 
-
-def load_movies_imdb(lang):
+def load_movies_imdb():
     try:
-        with open(f"{lang}/movies_imdb.json","r") as f:
+        with open(movies_imdb_path,"r") as f:
             movies_imdb = json.load(f)
             return movies_imdb
     except:
         movies_imdb = {}
         return movies_imdb
 
-def save_movies_imdb(lang, movies_imdb):
-    with open(f"{lang}/movies_imdb.json","w") as f:
+def save_movies_imdb(movies_imdb):
+    with open(movies_imdb_path,"w") as f:
         f.write(json.dumps(movies_imdb))
 
-def fetch_movies_imdb(lang):
+def fetch_movies_imdb():
     base = load_movies_files()
     files = list(base.values())
     files = [ file for f in files for file in f]
@@ -124,16 +141,15 @@ def fetch_movies_imdb(lang):
 
     print("after count: %i" % len(movies_imdb.keys()))
 
-    with open("bad_movies.json","w") as f:
+    with open(f"{out_dir}/bad_movies.json","w") as f:
         f.write(json.dumps(bad_movies))
 
     save_movies_imdb(lang, movies_imdb)
 
 ###########################
-
 def load_movie_ffprobes():
     try:
-        with open("movie_ffprobes.json","r") as f:
+        with open(movie_ffprobes_path,"r") as f:
             base = json.load(f)
             return base
     except:
@@ -141,12 +157,11 @@ def load_movie_ffprobes():
         
 
 def save_movie_ffprobes(movie_props):
-    with open(f"movie_ffprobes.json","w") as f:
+    with open(movie_ffprobes_path,"w") as f:
         f.write(json.dumps(movie_props))
 
 
 def generate_movie_ffprobes():
-
     movie_files = load_movies_files()
 
     folders = movie_files.keys()
@@ -175,10 +190,9 @@ def generate_movie_ffprobes():
         save_movie_ffprobes(movie_props)
 
 
-def get_posters(lang):
-    base = load_movies_imdb(lang)
+def get_posters(posters_path):
+    base = load_movies_imdb()
 
-    posters_path = f"{lang}/posters"
     os.makedirs(posters_path, exist_ok=True)
     for k,v in tqdm(base.items()):        
         pp = v["poster_path"]
@@ -191,13 +205,10 @@ def get_posters(lang):
                         if chunk: # filter out keep-alive new chunks
                             f.write(chunk)
 
-def make_thumbs(lang):
-    in_dir = f"{lang}/posters"
-    out_dir = Path(f"{lang}/thumbs")
-    os.makedirs(out_dir, exist_ok=True)
+def make_thumbs(posters_path, thumbs_path):
     base_width = 200
-    for file in tqdm(glob.glob(f"{in_dir}/*.jpg")):
-        out_file = out_dir / Path(file).name 
+    for file in tqdm(glob.glob(f"{posters_path}/*.jpg")):
+        out_file = thumbs_path / Path(file).name 
         if os.path.isfile(out_file)==False:
             img = Image.open(file)
             wpercent = (base_width / float(img.size[0]))
@@ -217,8 +228,8 @@ def get_lang(t):
         return "fra"
     return None
 
-def generate_processed_movie_database(lang):
-    movie_idbm = load_movies_imdb(lang)
+def generate_processed_movie_database():
+    movie_idbm = load_movies_imdb()
     movie_props = load_movie_ffprobes()
 
     simple_movie_props = {}
@@ -284,27 +295,22 @@ def generate_processed_movie_database(lang):
 
         simple_movie_props[movie] = sm
 
-    with open(f"{lang}/processed_movie_database.js","w") as f:
+    with open(f"{lang_path}/processed_movie_database.js","w") as f:
         f.write("processed_movie_database =" + json.dumps(simple_movie_props))
-
-
-lang = "en-US"
-lang = "es-ES"
-os.makedirs(lang, exist_ok=True)
 
 
 
 if False:
     print("list films")
-    gen_movie_files()    
+    gen_movie_files(root_movies)    
     print("fetching from imdb")
-    fetch_movies_imdb(lang)
+    fetch_movies_imdb()
     print("ffprobing")
     generate_movie_ffprobes()        
     print("gen posters")
-    get_posters(lang)
+    get_posters(posters_path)
     print("gen thumbs")
-    make_thumbs(lang)
+    make_thumbs(posters_path, thumbs_path)
 
 print("gen post processed database")
-generate_processed_movie_database(lang)
+generate_processed_movie_database()

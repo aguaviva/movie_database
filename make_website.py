@@ -2,7 +2,8 @@ import requests
 from urllib.parse import quote
 from PIL import Image
 import json
-import sys, os, glob, re 
+import sys, os, glob, shutil
+import re
 import subprocess
 from pathlib import Path
 from tqdm import tqdm
@@ -10,19 +11,24 @@ from tqdm import tqdm
 #config
 root_movies = "./nube"
 out_dir = "./out"
+tmp_dir = "./tmp"
 lang = "es-ES" #"en-US"
 
 lang_path = f"{out_dir}/{lang}"
-posters_path = f"{lang_path}/posters"
 thumbs_path = Path(f"{lang_path}/thumbs")
 
-movie_files_path = f"{out_dir}/movie_files.json"
-movies_imdb_path = f"{out_dir}/{lang}/movies_imdb.json"
-movie_ffprobes_path = f"{out_dir}/movie_ffprobes.json"
-
 os.makedirs(lang_path, exist_ok=True)
-os.makedirs(posters_path, exist_ok=True)
 os.makedirs(thumbs_path, exist_ok=True)
+################
+
+posters_path = f"{tmp_dir}/{lang}/posters"
+movie_files_path = f"{tmp_dir}/movie_files.json"
+movies_imdb_path = f"{tmp_dir}/{lang}/movies_imdb.json"
+movie_ffprobes_path = f"{tmp_dir}/movie_ffprobes.json"
+
+os.makedirs(posters_path, exist_ok=True)
+##################
+
 
 #################
 def is_movie(title):
@@ -114,7 +120,7 @@ def fetch_movies_imdb():
     files = list(base.values())
     files = [ file for f in files for file in f]
     
-    movies_imdb = load_movies_imdb(lang)
+    movies_imdb = load_movies_imdb()
 
     print("movie count: %i" % len(movies_imdb.keys()))
 
@@ -144,7 +150,7 @@ def fetch_movies_imdb():
     with open(f"{out_dir}/bad_movies.json","w") as f:
         f.write(json.dumps(bad_movies))
 
-    save_movies_imdb(lang, movies_imdb)
+    save_movies_imdb(movies_imdb)
 
 ###########################
 def load_movie_ffprobes():
@@ -302,15 +308,18 @@ def generate_processed_movie_database():
 
 if False:
     print("list films")
-    gen_movie_files(root_movies)    
-    print("fetching from imdb")
-    fetch_movies_imdb()
-    print("ffprobing")
-    generate_movie_ffprobes()        
-    print("gen posters")
-    get_posters(posters_path)
-    print("gen thumbs")
-    make_thumbs(posters_path, thumbs_path)
+    gen_movie_files(root_movies)   
 
+print("fetching from imdb")
+fetch_movies_imdb()
+print("ffprobing")
+generate_movie_ffprobes()        
+print("gen posters")
+get_posters(posters_path)
+print("gen thumbs")
+make_thumbs(posters_path, thumbs_path)
+
+for file in glob.glob("./static/*"):
+    shutil.copy(file, out_dir)
 print("gen post processed database")
 generate_processed_movie_database()

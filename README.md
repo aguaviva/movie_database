@@ -12,4 +12,4 @@ The script:
 It works on my computer, so use it at your own risk :)
   
 # Screensot 
-![Alt text](./assets/Screenshot from 2024-08-03 02-54-43.png "a screenshot")
+![Alt text](./assets/screenshot.png "a screenshot")
